@@ -1,10 +1,4 @@
---[[
-  UILib Modular para Delta Executor
-  Modern UI inspirado en Synapse X / Rayfield / ShadCN
-  Componentes: Window, Button, Toggle, Slider, Dropdown, TextBox
-  Temas: Dark / Light
-  Soporte PC y móvil
-]]
+
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -56,8 +50,14 @@ local function MakeLabel(parent, text, theme, size, weight)
     lbl.Size = UDim2.new(1, 0, 0, size or 20)
     lbl.BackgroundTransparency = 1
     lbl.Font = Enum.Font.Gotham
-   ("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold) end)
-    end
+    lbl.Text = text or ""
+    lbl.TextSize = size or 20
+    lbl.TextColor3 = theme.Text
+    lbl.TextWrapped = true
+    lbl.TextXAlignment = Enum.TextXAlignment.Center
+    lbl.TextYAlignment = Enum.TextYAlignment.Center
+    lbl.ZIndex = 10
+    lbl.Parent = parent
     return lbl
 end
 
