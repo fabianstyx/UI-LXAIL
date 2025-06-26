@@ -1,4 +1,3 @@
--- ZygardeUILib.lua
 local ZygardeUILib = {}
 
 -- Utilidades internas
