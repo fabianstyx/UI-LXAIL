@@ -2601,16 +2601,23 @@ function LXAIL:CreateWindow(options)
     local function createOptionsFrame()
     if optionsFrame then optionsFrame:Destroy() end
 
-    -- Create dropdown container in the same parent as the section for proper visibility
+    -- Create dropdown container in the content frame for proper visibility
     optionsFrame = Instance.new("Frame")
     optionsFrame.Name = "LXAILDropdownOptions"
-    optionsFrame.Size = UDim2.new(0, dropdownButton.Size.X.Offset, 0, math.min(#optionsList * 30, 150))
-    optionsFrame.Position = UDim2.new(0, dropdownButton.Position.X.Offset, 0, dropdownButton.Position.Y.Offset + 25 + 2)
+    optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 30, 150))
+    
+    -- Calculate absolute position relative to the content frame
+    local buttonAbsPos = dropdownButton.AbsolutePosition
+    local contentAbsPos = content.AbsolutePosition
+    local relativeX = buttonAbsPos.X - contentAbsPos.X
+    local relativeY = (buttonAbsPos.Y - contentAbsPos.Y) + dropdownButton.AbsoluteSize.Y + 2
+    
+    optionsFrame.Position = UDim2.new(0, relativeX, 0, relativeY)
     optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     optionsFrame.BorderSizePixel = 0
     optionsFrame.ZIndex = 1000
     optionsFrame.ClipsDescendants = true
-    optionsFrame.Parent = section -- Parent to section instead of CoreGui
+    optionsFrame.Parent = content -- Parent to content frame instead of section
 
     local optionsCorner = Instance.new("UICorner")
     optionsCorner.CornerRadius = UDim.new(0, 4)
