@@ -109,8 +109,10 @@ function Library:ToggleUI()
             end
         end
         
-        -- Update button icon
-        ToggleButton.TextLabel.Text = '❌';
+        -- Update button icon (with safety check)
+        if Library.ToggleButton and Library.ToggleButton:FindFirstChild('TextLabel') then
+            Library.ToggleButton.TextLabel.Text = '❌';
+        end
     else
         -- Fade out animation
         for _, obj in pairs(ScreenGui:GetDescendants()) do
@@ -131,8 +133,10 @@ function Library:ToggleUI()
         task.wait(0.3);
         ScreenGui.Enabled = false;
         
-        -- Update button icon
-        ToggleButton.TextLabel.Text = '⚙️';
+        -- Update button icon (with safety check)
+        if Library.ToggleButton and Library.ToggleButton:FindFirstChild('TextLabel') then
+            Library.ToggleButton.TextLabel.Text = '⚙️';
+        end
     end
 end;
 
@@ -3924,7 +3928,7 @@ local function CreateToggleButton()
 end
 
 -- Create the toggle button after all Library methods are defined
-local ToggleButton = CreateToggleButton();
+Library.ToggleButton = CreateToggleButton();
 
 getgenv().Library = Library
 return Library
