@@ -286,6 +286,12 @@ else
     end
 end
 
+-- === GLOBAL LINORIA UI COMPATIBILITY ===
+local Toggles = {}
+local Options = {}
+getgenv().Toggles = Toggles
+getgenv().Options = Options
+
 -- === LXAIL LIBRARY WITH ENHANCED PROTECTION ===
 local LXAIL = {
     Version = "3.0.0",
@@ -303,7 +309,21 @@ local LXAIL = {
     _drawingObjects = {}, -- Registro de Drawing objects
     _tweens = {}, -- Registro de tweens
     _isDestroyed = false, -- Estado de destrucción
-    _validationCache = {} -- Cache de validación
+    _validationCache = {}, -- Cache de validación
+    
+    -- === LINORIA UI COMPATIBILITY ===
+    Registry = {},
+    RegistryMap = {},
+    Signals = {},
+    
+    -- Colors for compatibility
+    FontColor = Color3.fromRGB(255, 255, 255),
+    MainColor = Color3.fromRGB(28, 28, 28),
+    BackgroundColor = Color3.fromRGB(20, 20, 20),
+    AccentColor = Color3.fromRGB(0, 85, 255),
+    OutlineColor = Color3.fromRGB(50, 50, 50),
+    Black = Color3.new(0, 0, 0),
+    Font = Enum.Font.Code,
 }
 
 -- === INTERNAL PROTECTION FUNCTIONS ===
@@ -2126,6 +2146,24 @@ function LXAIL:CreateWindow(options)
                 return toggled
             end
             
+            -- === LINORIA UI COMPATIBILITY ===
+            function toggleObj:OnChanged(func)
+                if func and type(func) == "function" then
+                    self.Callback = func
+                end
+                return self
+            end
+            
+            function toggleObj:SetValue(value)
+                self:Set(value)
+                return self
+            end
+            
+            -- Add to global Toggles table for Silent Aim compatibility
+            if flag then
+                Toggles[flag] = toggleObj
+            end
+            
             table.insert(self.Components, toggleObj)
             return toggleObj
         end
@@ -2341,7 +2379,25 @@ function LXAIL:CreateWindow(options)
             end
             
             function sliderObj:Get()
-                return currentValue
+                return sliderValue
+            end
+            
+            -- === LINORIA UI COMPATIBILITY ===
+            function sliderObj:OnChanged(func)
+                if func and type(func) == "function" then
+                    self.Callback = func
+                end
+                return self
+            end
+            
+            function sliderObj:SetValue(value)
+                self:Set(value)
+                return self
+            end
+            
+            -- Add to global Options table for Silent Aim compatibility
+            if flag then
+                Options[flag] = sliderObj
             end
             
             table.insert(self.Components, sliderObj)
@@ -2853,6 +2909,37 @@ end
             updateDisplay()
         end
     end
+    
+    -- === LINORIA UI COMPATIBILITY ===
+    function dropdownObj:OnChanged(func)
+        if func and type(func) == "function" then
+            self.Callback = func
+        end
+        return self
+    end
+    
+    function dropdownObj:SetValue(value)
+        self:Set(value)
+        return self
+    end
+    
+    function dropdownObj:SetValues(values)
+        self:Refresh(values)
+        return self
+    end
+    
+    function dropdownObj:GetActiveValues()
+        if multipleOptions then
+            return currentValue
+        else
+            return {currentValue}
+        end
+    end
+    
+    -- Add to global Options table for Silent Aim compatibility
+    if flag then
+        Options[flag] = dropdownObj
+    end
 
     table.insert(self.Components, dropdownObj)
     updateDisplay()
@@ -3185,6 +3272,54 @@ end
             return dividerObj
         end
         
+        -- === LINORIA UI COMPATIBILITY METHODS ===
+        function tabObj:AddToggle(flag, options)
+            options = options or {}
+            options.Flag = flag
+            options.Name = options.Text or flag
+            local toggle = self:CreateToggle(options)
+            if flag then
+                Toggles[flag] = toggle
+            end
+            return toggle
+        end
+        
+        function tabObj:AddSlider(flag, options)
+            options = options or {}
+            options.Flag = flag
+            options.Name = options.Text or flag
+            local slider = self:CreateSlider(options)
+            if flag then
+                Options[flag] = slider
+            end
+            return slider
+        end
+        
+        function tabObj:AddDropdown(flag, options)
+            options = options or {}
+            options.Flag = flag
+            options.Name = options.Text or flag
+            local dropdown = self:CreateDropdown(options)
+            if flag then
+                Options[flag] = dropdown
+            end
+            return dropdown
+        end
+        
+        function tabObj:AddButton(options)
+            options = options or {}
+            options.Name = options.Text or "Button"
+            return self:CreateButton(options)
+        end
+        
+        function tabObj:AddLabel(text)
+            return self:CreateLabel({Text = text})
+        end
+        
+        function tabObj:AddDivider()
+            return self:CreateDivider()
+        end
+        
         return tabObj
     end
     
@@ -3208,6 +3343,12 @@ end
     function window:LoadConfigFromTable(configTable)
         for flag, value in pairs(configTable) do
             LXAIL.Flags[flag] = value
+            -- Update global Toggles and Options
+            if Toggles[flag] and Toggles[flag].Set then
+                Toggles[flag]:Set(value)
+            elseif Options[flag] and Options[flag].Set then
+                Options[flag]:Set(value)
+            end
             -- Find and update corresponding UI elements
             for _, tab in pairs(self.Tabs) do
                 if tab.Components then
@@ -3361,10 +3502,52 @@ function tween(instance, ti, props)
     TweenService:Create(instance, ti, props):Play()
 end
 
+-- === LINORIA UI COMPATIBILITY GLOBAL METHODS ===
+
+-- Initialize Linoria-style Library object
+local Library = LXAIL
+Library.Unloaded = false
+
+function Library:New(options)
+    return self:CreateWindow(options)
+end
+
+-- Add Linoria UI methods to Library object
+function Library:SetWatermarkVisibility(visible)
+    -- Placeholder for watermark functionality
+    return true
+end
+
+function Library:SetWatermark(text)
+    -- Placeholder for watermark functionality
+    return true
+end
+
+function Library:OnUnload(callback)
+    if callback and type(callback) == "function" then
+        self._unloadCallback = callback
+    end
+end
+
+-- Override Unload to call Linoria-style callback
+local originalUnload = LXAIL.Unload
+function Library:Unload()
+    if self._unloadCallback then
+        self._unloadCallback()
+    end
+    self.Unloaded = true
+    return originalUnload(self)
+end
+
+-- Add global getgenv assignments for complete compatibility
+getgenv().Library = Library
+
 -- === INITIALIZATION ===
 print("[LXAIL Enhanced] UI Library v" .. LXAIL.Version .. " loaded successfully")
 print("[LXAIL Enhanced] Connection management and crash protection enabled")
 print("[LXAIL Enhanced] Compatible with Silent Aim and other script hooks")
+print("[LXAIL Enhanced] Linoria UI compatibility layer active")
+print("[LXAIL Enhanced] Global Toggles and Options tables available")
 print("[LXAIL Enhanced] Use LXAIL:Unload() to cleanup when script ends")
 
 return LXAIL
