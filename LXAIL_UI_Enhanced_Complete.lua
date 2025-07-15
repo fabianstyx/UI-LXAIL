@@ -2118,7 +2118,12 @@ function LXAIL:CreateWindow(options)
             function toggleObj:Set(value)
                 toggled = value
                 self.Value = value
+                self.CurrentValue = value
                 updateToggle()
+            end
+            
+            function toggleObj:Get()
+                return toggled
             end
             
             table.insert(self.Components, toggleObj)
@@ -2332,6 +2337,11 @@ function LXAIL:CreateWindow(options)
             function sliderObj:Set(value)
                 setSlider(value)
                 self.Value = value
+                self.CurrentValue = value
+            end
+            
+            function sliderObj:Get()
+                return currentValue
             end
             
             table.insert(self.Components, sliderObj)
@@ -2803,7 +2813,45 @@ end
             currentValue = opt
         end
         self.CurrentOption = currentValue
+        self.CurrentValue = currentValue
         updateDisplay()
+    end
+    
+    function dropdownObj:Get()
+        return currentValue
+    end
+    
+    function dropdownObj:Refresh(newOptions, newDefault)
+        optionsList = newOptions or optionsList
+        if newDefault then
+            currentValue = newDefault
+        end
+        if optionsFrame then
+            optionsFrame:Destroy()
+            optionsFrame = nil
+        end
+        updateDisplay()
+    end
+    
+    function dropdownObj:AddOption(newOption)
+        table.insert(optionsList, newOption)
+        if optionsFrame then
+            optionsFrame:Destroy()
+            optionsFrame = nil
+        end
+    end
+    
+    function dropdownObj:RemoveOption(optionToRemove)
+        for i, option in ipairs(optionsList) do
+            if option == optionToRemove then
+                table.remove(optionsList, i)
+                break
+            end
+        end
+        if currentValue == optionToRemove then
+            currentValue = optionsList[1] or "None"
+            updateDisplay()
+        end
     end
 
     table.insert(self.Components, dropdownObj)
@@ -3140,6 +3188,47 @@ end
         return tabObj
     end
     
+    -- === ADDITIONAL HELPER METHODS FOR COMPATIBILITY ===
+    function window:GetFlag(flagName)
+        return LXAIL.Flags[flagName]
+    end
+    
+    function window:SetFlag(flagName, value)
+        LXAIL.Flags[flagName] = value
+    end
+    
+    function window:GetAllFlags()
+        return LXAIL.Flags
+    end
+    
+    function window:ClearFlags()
+        LXAIL.Flags = {}
+    end
+    
+    function window:LoadConfigFromTable(configTable)
+        for flag, value in pairs(configTable) do
+            LXAIL.Flags[flag] = value
+            -- Find and update corresponding UI elements
+            for _, tab in pairs(self.Tabs) do
+                if tab.Components then
+                    for _, component in pairs(tab.Components) do
+                        if component.Flag == flag and component.Set then
+                            component:Set(value)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    function window:SaveConfigToTable()
+        local config = {}
+        for flag, value in pairs(LXAIL.Flags) do
+            config[flag] = value
+        end
+        return config
+    end
+    
     return window
 end
 
@@ -3150,6 +3239,94 @@ function LXAIL:Toggle()
             window:Toggle()
         end
     end
+end
+
+-- === NOTIFICATION SYSTEM ===
+function LXAIL:MakeNotification(options)
+    options = options or {}
+    local name = options.Name or "Notification"
+    local content = options.Content or "No content provided"
+    local image = options.Image or ""
+    local time = options.Time or 5
+    
+    -- Create notification UI
+    local notificationGui = Instance.new("ScreenGui")
+    notificationGui.Name = "LXAILNotification"
+    notificationGui.ResetOnSpawn = false
+    notificationGui.Parent = playerGui or player:WaitForChild("PlayerGui")
+    
+    -- Protect the GUI
+    RegisterScreenGui(notificationGui, "Notification")
+    
+    local notificationFrame = Instance.new("Frame")
+    notificationFrame.Size = UDim2.new(0, 300, 0, 80)
+    notificationFrame.Position = UDim2.new(1, -320, 1, -100)
+    notificationFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    notificationFrame.BorderSizePixel = 0
+    notificationFrame.ZIndex = 1000
+    notificationFrame.Parent = notificationGui
+    
+    local notificationCorner = Instance.new("UICorner")
+    notificationCorner.CornerRadius = UDim.new(0, 8)
+    notificationCorner.Parent = notificationFrame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Text = name
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Position = UDim2.new(0, 15, 0, 5)
+    titleLabel.Size = UDim2.new(1, -30, 0, 25)
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = notificationFrame
+    
+    local contentLabel = Instance.new("TextLabel")
+    contentLabel.Text = content
+    contentLabel.Font = Enum.Font.Gotham
+    contentLabel.TextSize = 14
+    contentLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    contentLabel.BackgroundTransparency = 1
+    contentLabel.Position = UDim2.new(0, 15, 0, 30)
+    contentLabel.Size = UDim2.new(1, -30, 0, 45)
+    contentLabel.TextXAlignment = Enum.TextXAlignment.Left
+    contentLabel.TextYAlignment = Enum.TextYAlignment.Top
+    contentLabel.TextWrapped = true
+    contentLabel.Parent = notificationFrame
+    
+    -- Slide in animation
+    local slideInTween = TweenService:Create(
+        notificationFrame,
+        TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, -320, 1, -100)}
+    )
+    
+    notificationFrame.Position = UDim2.new(1, 20, 1, -100)
+    slideInTween:Play()
+    
+    -- Auto-remove after specified time
+    spawn(function()
+        wait(time)
+        
+        local slideOutTween = TweenService:Create(
+            notificationFrame,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            {Position = UDim2.new(1, 20, 1, -100)}
+        )
+        
+        slideOutTween:Play()
+        slideOutTween.Completed:Connect(function()
+            notificationGui:Destroy()
+        end)
+    end)
+    
+    return {
+        Frame = notificationFrame,
+        Gui = notificationGui,
+        Destroy = function()
+            notificationGui:Destroy()
+        end
+    }
 end
 
 -- === SET THEME FUNCTION ===
