@@ -398,7 +398,24 @@ local function SafePropertySet(instance, property, value)
     return true
 end
 
+function LXAIL:Connect(event, func)
+    if not (event and typeof(event) == "RBXScriptSignal" and func) then return end
+    local connection = event:Connect(function(...)
+        if self._isDestroyed then return end -- protección si UI ya destruida
+        local ok, err = pcall(func, ...)
+        if not ok then warn("[LXAIL:Connect] Callback error:", err) end
+    end)
+    -- REGISTRAR para limpieza
+    table.insert(self._connections, {connection=connection, name="UserConnect", timestamp=tick()})
+    return connection
+end
+
 -- === CLEANUP SYSTEM ===
+function LXAIL:RegisterDrawing(obj)
+    if not obj then return end
+    table.insert(self._drawingObjects, obj)
+    return obj
+end
 
 -- Función Unload completa
 function LXAIL:Unload()
@@ -406,10 +423,22 @@ function LXAIL:Unload()
         warn("[LXAIL] Library already destroyed")
         return false
     end
-    
+
     print("[LXAIL] Starting unload process...")
     self._isDestroyed = true
-    
+
+    -- Destruir todos los Drawing objects
+    if self._drawingObjects then
+        for i = #self._drawingObjects, 1, -1 do
+            local obj = self._drawingObjects[i]
+            if obj and typeof(obj.Remove) == "function" then
+                pcall(function() obj:Remove() end)
+            end
+            table.remove(self._drawingObjects, i)
+        end
+        self._drawingObjects = {}
+    end
+
     -- Desconectar todas las conexiones
     local disconnectedCount = 0
     for i = #self._connections, 1, -1 do
@@ -421,33 +450,31 @@ function LXAIL:Unload()
                     disconnectedCount = disconnectedCount + 1
                 end
             end)
-            
             if not success then
                 warn("[LXAIL] Failed to disconnect connection: " .. tostring(error))
             end
         end
         table.remove(self._connections, i)
     end
-    
+
     -- Destruir todos los ScreenGuis
     local destroyedCount = 0
     for i = #self._screenGuis, 1, -1 do
         local guiInfo = self._screenGuis[i]
         if guiInfo and guiInfo.gui then
             local success, error = pcall(function()
-                if ValidateInstance(guiInfo.gui) then
+                if ValidateInstance and ValidateInstance(guiInfo.gui) then
                     guiInfo.gui:Destroy()
                     destroyedCount = destroyedCount + 1
                 end
             end)
-            
             if not success then
                 warn("[LXAIL] Failed to destroy ScreenGui: " .. tostring(error))
             end
         end
         table.remove(self._screenGuis, i)
     end
-    
+
     -- Cancelar todos los tweens
     local cancelledCount = 0
     for i = #self._tweens, 1, -1 do
@@ -457,30 +484,30 @@ function LXAIL:Unload()
                 tweenInfo.tween:Cancel()
                 cancelledCount = cancelledCount + 1
             end)
-            
             if not success then
                 warn("[LXAIL] Failed to cancel tween: " .. tostring(error))
             end
         end
         table.remove(self._tweens, i)
     end
-    
+
     -- Limpiar arrays
     self._connections = {}
     self._screenGuis = {}
     self._tweens = {}
+    self._drawingObjects = {}
     self._validationCache = {}
-    
+
     -- Limpiar configuración
     self.Flags = {}
     self.Windows = {}
     self.Notifications = {}
-    
-    print("[LXAIL] Unload complete. Cleaned: " .. disconnectedCount .. " connections, " .. 
-          destroyedCount .. " GUIs, " .. cancelledCount .. " tweens")
-    
+
+    print("[LXAIL] Unload complete. Cleaned: " .. disconnectedCount .. " connections, " ..
+            destroyedCount .. " GUIs, " .. cancelledCount .. " tweens")
     return true
 end
+
 
 -- === ENHANCED UTILITY FUNCTIONS ===
 local function playSound(soundId)
@@ -2474,233 +2501,207 @@ function LXAIL:CreateWindow(options)
         end
         
         function tabObj:CreateDropdown(options)
-            options = options or {}
-            local name = options.Name or "Dropdown"
-            local optionsList = options.Options or {"Option 1", "Option 2"}
-            local currentOption = options.CurrentOption or {optionsList[1]}
-            local multipleOptions = options.MultipleOptions or false
-            local flag = options.Flag
-            local callback = options.Callback or function() end
-            
-            local section = Instance.new("Frame")
-            section.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            section.BackgroundTransparency = 0.3
-            section.Size = UDim2.new(0.95, 0, 0, 50)
-            section.BorderSizePixel = 0
-            section.LayoutOrder = #self.Components + 1
-            section.Parent = frame
-            
-            local sectionCorner = Instance.new("UICorner")
-            sectionCorner.CornerRadius = UDim.new(0, 8)
-            sectionCorner.Parent = section
-            
-            local label = Instance.new("TextLabel")
-            label.Text = name
-            label.Font = Enum.Font.GothamBold
-            label.TextSize = 18
-            label.TextColor3 = Color3.fromRGB(240, 240, 240)
-            label.BackgroundTransparency = 1
-            label.Position = UDim2.new(0, 15, 0, 5)
-            label.Size = UDim2.new(0.6, -15, 0, 20)
-            label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = section
-            
-            local dropdownButton = Instance.new("TextButton")
-            dropdownButton.Size = UDim2.new(0.4, -15, 0, 25)
-            dropdownButton.Position = UDim2.new(0.6, 0, 0, 20)
-            dropdownButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-            dropdownButton.BorderSizePixel = 0
-            dropdownButton.Text = currentOption[1] or "Select..."
-            dropdownButton.TextColor3 = Color3.fromRGB(230, 230, 230)
-            dropdownButton.TextSize = 16
-            dropdownButton.Font = Enum.Font.Gotham
-            dropdownButton.AutoButtonColor = false
-            dropdownButton.Parent = section
-            
-            local dropdownCorner = Instance.new("UICorner")
-            dropdownCorner.CornerRadius = UDim.new(0, 4)
-            dropdownCorner.Parent = dropdownButton
-            
-            local dropdownArrow = Instance.new("TextLabel")
-            dropdownArrow.Size = UDim2.new(0, 20, 1, 0)
-            dropdownArrow.Position = UDim2.new(1, -20, 0, 0)
-            dropdownArrow.BackgroundTransparency = 1
-            dropdownArrow.Text = "▼"
-            dropdownArrow.TextColor3 = Color3.fromRGB(150, 150, 150)
-            dropdownArrow.TextSize = 12
-            dropdownArrow.Font = Enum.Font.Gotham
-            dropdownArrow.TextXAlignment = Enum.TextXAlignment.Center
-            dropdownArrow.Parent = dropdownButton
-            
-            local selectedOptions = currentOption
-            local dropdownOpen = false
-            local optionsFrame = nil
-            
-            local function updateDisplay()
-                if multipleOptions then
-                    dropdownButton.Text = #selectedOptions > 0 and table.concat(selectedOptions, ", ") or "Select..."
-                else
-                    dropdownButton.Text = selectedOptions[1] or "Select..."
-                end
-                
-                if flag then
-                    LXAIL.Flags[flag] = selectedOptions
-                end
-                
-                callback(selectedOptions)
+    options = options or {}
+    local name = options.Name or "Dropdown"
+    local optionsList = options.Options or {"Option 1", "Option 2"}
+    local multipleOptions = options.MultipleOptions or false
+    local flag = options.Flag
+    local callback = options.Callback or function() end
+
+    -- Single: string, Multi: table
+    local currentOption = options.CurrentOption
+    local selectedOptions = multipleOptions
+        and (type(currentOption)=="table" and currentOption or (currentOption and {currentOption} or {}))
+        or (currentOption or optionsList[1] or nil)
+
+    local section = Instance.new("Frame")
+    section.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    section.BackgroundTransparency = 0.3
+    section.Size = UDim2.new(0.95, 0, 0, 50)
+    section.BorderSizePixel = 0
+    section.LayoutOrder = #self.Components + 1
+    section.Parent = frame
+
+    local sectionCorner = Instance.new("UICorner")
+    sectionCorner.CornerRadius = UDim.new(0, 8)
+    sectionCorner.Parent = section
+
+    local label = Instance.new("TextLabel")
+    label.Text = name
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 18
+    label.TextColor3 = Color3.fromRGB(240, 240, 240)
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 15, 0, 5)
+    label.Size = UDim2.new(0.6, -15, 0, 20)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = section
+
+    local dropdownButton = Instance.new("TextButton")
+    dropdownButton.Size = UDim2.new(0.4, -15, 0, 25)
+    dropdownButton.Position = UDim2.new(0.6, 0, 0, 20)
+    dropdownButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    dropdownButton.BorderSizePixel = 0
+    dropdownButton.Text = multipleOptions
+        and (#selectedOptions > 0 and table.concat(selectedOptions, ", ") or "Select...")
+        or (selectedOptions or "Select...")
+    dropdownButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+    dropdownButton.TextSize = 16
+    dropdownButton.Font = Enum.Font.Gotham
+    dropdownButton.AutoButtonColor = false
+    dropdownButton.Parent = section
+
+    local dropdownCorner = Instance.new("UICorner")
+    dropdownCorner.CornerRadius = UDim.new(0, 4)
+    dropdownCorner.Parent = dropdownButton
+
+    local dropdownArrow = Instance.new("TextLabel")
+    dropdownArrow.Size = UDim2.new(0, 20, 1, 0)
+    dropdownArrow.Position = UDim2.new(1, -20, 0, 0)
+    dropdownArrow.BackgroundTransparency = 1
+    dropdownArrow.Text = "▼"
+    dropdownArrow.TextColor3 = Color3.fromRGB(150, 150, 150)
+    dropdownArrow.TextSize = 12
+    dropdownArrow.Font = Enum.Font.Gotham
+    dropdownArrow.TextXAlignment = Enum.TextXAlignment.Center
+    dropdownArrow.Parent = dropdownButton
+
+    local dropdownOpen = false
+    local optionsFrame = nil
+
+    local function updateDisplay()
+        if multipleOptions then
+            dropdownButton.Text = (#selectedOptions > 0 and table.concat(selectedOptions, ", ") or "Select...")
+            if flag then LXAIL.Flags[flag] = selectedOptions end
+            callback(selectedOptions)
+        else
+            dropdownButton.Text = selectedOptions or "Select..."
+            if flag then LXAIL.Flags[flag] = selectedOptions end
+            callback(selectedOptions)
+        end
+    end
+
+    local function createOptionsFrame()
+        if optionsFrame then optionsFrame:Destroy() end
+
+        optionsFrame = Instance.new("Frame")
+        optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 30, 150))
+        optionsFrame.Position = UDim2.new(0, dropdownButton.AbsolutePosition.X - section.AbsolutePosition.X, 0, 50)
+        optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        optionsFrame.BorderSizePixel = 0
+        optionsFrame.ZIndex = 1000
+        optionsFrame.Parent = section
+
+        local optionsCorner = Instance.new("UICorner")
+        optionsCorner.CornerRadius = UDim.new(0, 4)
+        optionsCorner.Parent = optionsFrame
+
+        local scrollingFrame = Instance.new("ScrollingFrame")
+        scrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+        scrollingFrame.BackgroundTransparency = 1
+        scrollingFrame.BorderSizePixel = 0
+        scrollingFrame.ScrollBarThickness = 4
+        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 30)
+        scrollingFrame.Parent = optionsFrame
+
+        local optionsLayout = Instance.new("UIListLayout")
+        optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        optionsLayout.Parent = scrollingFrame
+
+        for i, option in ipairs(optionsList) do
+            local optionButton = Instance.new("TextButton")
+            optionButton.Size = UDim2.new(1, 0, 0, 30)
+            optionButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            optionButton.BorderSizePixel = 0
+            optionButton.Text = option
+            optionButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+            optionButton.TextSize = 14
+            optionButton.Font = Enum.Font.Gotham
+            optionButton.AutoButtonColor = false
+            optionButton.LayoutOrder = i
+            optionButton.Parent = scrollingFrame
+
+            -- Check if selected (diferente para single/multi)
+            local isSelected = multipleOptions
+                and table.find(selectedOptions, option) ~= nil
+                or selectedOptions == option
+            if isSelected then
+                optionButton.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
             end
-            
-            local function createOptionsFrame()
-                if optionsFrame then optionsFrame:Destroy() end
-                
-                optionsFrame = Instance.new("Frame")
-                optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 30, 150))
-                optionsFrame.Position = UDim2.new(0, dropdownButton.AbsolutePosition.X - section.AbsolutePosition.X, 0, 50)
-                optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-                optionsFrame.BorderSizePixel = 0
-                optionsFrame.ZIndex = 1000
-                optionsFrame.Parent = section
-                
-                local optionsCorner = Instance.new("UICorner")
-                optionsCorner.CornerRadius = UDim.new(0, 4)
-                optionsCorner.Parent = optionsFrame
-                
-                local scrollingFrame = Instance.new("ScrollingFrame")
-                scrollingFrame.Size = UDim2.new(1, 0, 1, 0)
-                scrollingFrame.BackgroundTransparency = 1
-                scrollingFrame.BorderSizePixel = 0
-                scrollingFrame.ScrollBarThickness = 4
-                scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 30)
-                scrollingFrame.Parent = optionsFrame
-                
-                local optionsLayout = Instance.new("UIListLayout")
-                optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                optionsLayout.Parent = scrollingFrame
-                
-                for i, option in ipairs(optionsList) do
-                    local optionButton = Instance.new("TextButton")
-                    optionButton.Size = UDim2.new(1, 0, 0, 30)
-                    optionButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-                    optionButton.BorderSizePixel = 0
-                    optionButton.Text = option
-                    optionButton.TextColor3 = Color3.fromRGB(230, 230, 230)
-                    optionButton.TextSize = 14
-                    optionButton.Font = Enum.Font.Gotham
-                    optionButton.AutoButtonColor = false
-                    optionButton.LayoutOrder = i
-                    optionButton.Parent = scrollingFrame
-                    
-                    -- Check if this option is selected
-                    for _, selected in ipairs(selectedOptions) do
-                        if selected == option then
-                            optionButton.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
-                            break
-                        end
-                    end
-                    
-                    optionButton.MouseEnter:Connect(function()
-                        if optionButton.BackgroundColor3 ~= Color3.fromRGB(60, 180, 60) then
-                            optionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-                        end
-                    end)
-                    
-                    optionButton.MouseLeave:Connect(function()
-                        local isSelected = false
-                        for _, selected in ipairs(selectedOptions) do
-                            if selected == option then
-                                isSelected = true
-                                break
-                            end
-                        end
-                        optionButton.BackgroundColor3 = isSelected and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
-                    end)
-                    
-                    optionButton.MouseButton1Click:Connect(function()
-                        if multipleOptions then
-                            -- Toggle option in multi-select
-                            local found = false
-                            for i, selected in ipairs(selectedOptions) do
-                                if selected == option then
-                                    table.remove(selectedOptions, i)
-                                    found = true
-                                    break
-                                end
-                            end
-                            if not found then
-                                table.insert(selectedOptions, option)
-                            end
-                        else
-                            -- Single select
-                            selectedOptions = {option}
-                            optionsFrame:Destroy()
-                            optionsFrame = nil
-                            dropdownOpen = false
-                            tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 0})
-                        end
-                        
-                        updateDisplay()
-                        
-                        -- Update button colors
-                        for _, btn in ipairs(scrollingFrame:GetChildren()) do
-                            if btn:IsA("TextButton") then
-                                local isSelected = false
-                                for _, selected in ipairs(selectedOptions) do
-                                    if selected == btn.Text then
-                                        isSelected = true
-                                        break
-                                    end
-                                end
-                                btn.BackgroundColor3 = isSelected and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
-                            end
-                        end
-                    end)
-                end
-            end
-            
-            dropdownButton.MouseButton1Click:Connect(function()
-                dropdownOpen = not dropdownOpen
-                
-                if dropdownOpen then
-                    createOptionsFrame()
-                    tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 180})
-                else
-                    if optionsFrame then
-                        optionsFrame:Destroy()
-                        optionsFrame = nil
-                    end
-                    tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 0})
+
+            optionButton.MouseEnter:Connect(function()
+                if optionButton.BackgroundColor3 ~= Color3.fromRGB(60, 180, 60) then
+                    optionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
                 end
             end)
-            
-            -- Set initial flag value
-            if flag then
-                LXAIL.Flags[flag] = selectedOptions
-            end
-            
-            local dropdownObj = {
-                Type = "Dropdown",
-                Name = name,
-                Options = optionsList,
-                CurrentOption = selectedOptions,
-                MultipleOptions = multipleOptions,
-                Flag = flag,
-                Callback = callback,
-                Element = section
-            }
-            
-            function dropdownObj:Set(option)
-                if type(option) == "table" then
-                    selectedOptions = option
+            optionButton.MouseLeave:Connect(function()
+                local isSel = multipleOptions
+                    and table.find(selectedOptions, option) ~= nil
+                    or selectedOptions == option
+                optionButton.BackgroundColor3 = isSel and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
+            end)
+            optionButton.MouseButton1Click:Connect(function()
+                if multipleOptions then
+                    local idx = table.find(selectedOptions, option)
+                    if idx then
+                        table.remove(selectedOptions, idx)
+                    else
+                        table.insert(selectedOptions, option)
+                    end
                 else
-                    selectedOptions = {option}
+                    selectedOptions = option
+                    if optionsFrame then optionsFrame:Destroy() optionsFrame=nil end
+                    dropdownOpen = false
+                    tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 0})
                 end
-                self.CurrentOption = selectedOptions
                 updateDisplay()
-            end
-            
-            table.insert(self.Components, dropdownObj)
-            return dropdownObj
+                -- Update button colors
+                for _, btn in ipairs(scrollingFrame:GetChildren()) do
+                    if btn:IsA("TextButton") then
+                        local isSel = multipleOptions
+                            and table.find(selectedOptions, btn.Text) ~= nil
+                            or selectedOptions == btn.Text
+                        btn.BackgroundColor3 = isSel and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
+                    end
+                end
+            end)
         end
+    end
+
+    dropdownButton.MouseButton1Click:Connect(function()
+        dropdownOpen = not dropdownOpen
+        if dropdownOpen then
+            createOptionsFrame()
+            tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 180})
+        else
+            if optionsFrame then optionsFrame:Destroy() optionsFrame = nil end
+            tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 0})
+        end
+    end)
+
+    -- Set initial flag value
+    if flag then LXAIL.Flags[flag] = selectedOptions end
+
+    local dropdownObj = {
+        Type = "Dropdown", Name = name, Options = optionsList,
+        CurrentOption = selectedOptions, MultipleOptions = multipleOptions,
+        Flag = flag, Callback = callback, Element = section
+    }
+    function dropdownObj:Set(opt)
+        if multipleOptions then
+            selectedOptions = type(opt)=="table" and opt or {opt}
+        else
+            selectedOptions = opt
+        end
+        self.CurrentOption = selectedOptions
+        updateDisplay()
+    end
+
+    table.insert(self.Components, dropdownObj)
+    updateDisplay()
+    return dropdownObj
+end
+
         
         function tabObj:CreateColorPicker(options)
             options = options or {}
