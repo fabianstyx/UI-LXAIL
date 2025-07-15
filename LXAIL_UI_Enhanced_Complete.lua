@@ -2604,7 +2604,7 @@ function LXAIL:CreateWindow(options)
     -- Create dropdown container in the content frame for proper visibility
     optionsFrame = Instance.new("Frame")
     optionsFrame.Name = "LXAILDropdownOptions"
-    optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 30, 150))
+    optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 35, 150))
     
     -- Calculate absolute position relative to the content frame
     local buttonAbsPos = dropdownButton.AbsolutePosition
@@ -2614,39 +2614,75 @@ function LXAIL:CreateWindow(options)
     
     optionsFrame.Position = UDim2.new(0, relativeX, 0, relativeY)
     optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    optionsFrame.BorderSizePixel = 0
+    optionsFrame.BorderSizePixel = 1
+    optionsFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
     optionsFrame.ZIndex = 1000
     optionsFrame.ClipsDescendants = true
-    optionsFrame.Parent = content -- Parent to content frame instead of section
+    optionsFrame.Parent = content
 
     local optionsCorner = Instance.new("UICorner")
     optionsCorner.CornerRadius = UDim.new(0, 4)
     optionsCorner.Parent = optionsFrame
 
-    local scrollingFrame = Instance.new("ScrollingFrame")
-    scrollingFrame.Size = UDim2.new(1, 0, 1, 0)
-    scrollingFrame.BackgroundTransparency = 1
-    scrollingFrame.BorderSizePixel = 0
-    scrollingFrame.ScrollBarThickness = 4
-    scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 30)
-    scrollingFrame.Parent = optionsFrame
+    -- Create options directly in the frame without ScrollingFrame for simplicity
+    local optionsContainer = Instance.new("Frame")
+    optionsContainer.Size = UDim2.new(1, 0, 1, 0)
+    optionsContainer.BackgroundTransparency = 1
+    optionsContainer.BorderSizePixel = 0
+    optionsContainer.Parent = optionsFrame
 
     local optionsLayout = Instance.new("UIListLayout")
     optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    optionsLayout.Parent = scrollingFrame
+    optionsLayout.Padding = UDim.new(0, 1)
+    optionsLayout.Parent = optionsContainer
+
+    -- If there are many options, use ScrollingFrame
+    if #optionsList > 4 then
+        optionsContainer:Destroy()
+        
+        local scrollingFrame = Instance.new("ScrollingFrame")
+        scrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+        scrollingFrame.Position = UDim2.new(0, 0, 0, 0)
+        scrollingFrame.BackgroundTransparency = 1
+        scrollingFrame.BorderSizePixel = 0
+        scrollingFrame.ScrollBarThickness = 6
+        scrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+        scrollingFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 35)
+        scrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        scrollingFrame.Parent = optionsFrame
+
+        local scrollLayout = Instance.new("UIListLayout")
+        scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        scrollLayout.Padding = UDim.new(0, 1)
+        scrollLayout.Parent = scrollingFrame
+        
+        optionsContainer = scrollingFrame
+        optionsLayout = scrollLayout
+    end
 
     for i, option in ipairs(optionsList) do
         local optionButton = Instance.new("TextButton")
-        optionButton.Size = UDim2.new(1, 0, 0, 30)
+        optionButton.Name = "Option_" .. tostring(i)
+        optionButton.Size = UDim2.new(1, (#optionsList > 4) and -6 or 0, 0, 34)
+        optionButton.Position = UDim2.new(0, 0, 0, 0)
         optionButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
         optionButton.BorderSizePixel = 0
-        optionButton.Text = option
+        optionButton.Text = tostring(option)
         optionButton.TextColor3 = Color3.fromRGB(230, 230, 230)
         optionButton.TextSize = 14
         optionButton.Font = Enum.Font.Gotham
+        optionButton.TextXAlignment = Enum.TextXAlignment.Left
         optionButton.AutoButtonColor = false
         optionButton.LayoutOrder = i
-        optionButton.Parent = scrollingFrame
+        optionButton.ZIndex = 1001
+        optionButton.Parent = optionsContainer
+
+        -- Add padding for text
+        local textPadding = Instance.new("UIPadding")
+        textPadding.PaddingLeft = UDim.new(0, 8)
+        textPadding.PaddingRight = UDim.new(0, 8)
+        textPadding.Parent = optionButton
 
         local isSelected = multipleOptions and table.find(currentValue, option) or (currentValue == option)
         if isSelected then
@@ -2654,7 +2690,8 @@ function LXAIL:CreateWindow(options)
         end
 
         optionButton.MouseEnter:Connect(function()
-            if not isSelected then
+            local stillSelected = multipleOptions and table.find(currentValue, option) or (currentValue == option)
+            if not stillSelected then
                 optionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
             end
         end)
@@ -2673,8 +2710,9 @@ function LXAIL:CreateWindow(options)
                     table.insert(currentValue, option)
                 end
                 updateDisplay()
-                for _, btn in ipairs(scrollingFrame:GetChildren()) do
-                    if btn:IsA("TextButton") then
+                -- Update all option buttons in this dropdown
+                for _, btn in ipairs(optionsContainer:GetChildren()) do
+                    if btn:IsA("TextButton") and btn.Name:match("Option_") then
                         local sel = table.find(currentValue, btn.Text)
                         btn.BackgroundColor3 = sel and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
                     end
