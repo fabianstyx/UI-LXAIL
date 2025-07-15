@@ -2598,103 +2598,89 @@ function LXAIL:CreateWindow(options)
     end
 
     local function createOptionsFrame()
-        if optionsFrame then optionsFrame:Destroy() end
+    if optionsFrame then optionsFrame:Destroy() end
 
-        -- Esperar un frame para que AbsolutePosition esté correcto
-        task.wait()
+    task.wait() -- Wait to ensure AbsolutePosition is correct
 
-        optionsFrame = Instance.new("Frame")
-        optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 30, 150))
-        -- Posición absoluta respecto a la sección para evitar errores de posicionamiento
-        optionsFrame.Position = UDim2.new(0, dropdownButton.AbsolutePosition.X - section.AbsolutePosition.X, 0, dropdownButton.AbsolutePosition.Y - section.AbsolutePosition.Y + dropdownButton.AbsoluteSize.Y + 2)
-        optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        optionsFrame.BorderSizePixel = 0
-        optionsFrame.ZIndex = 1000
-        optionsFrame.ClipsDescendants = true
-        optionsFrame.Parent = section
+    -- Create dropdown container (on ScreenGui level for visibility)
+    optionsFrame = Instance.new("Frame")
+    optionsFrame.Name = "LXAILDropdownOptions"
+    optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 30, 150))
+    optionsFrame.Position = UDim2.new(0, dropdownButton.AbsolutePosition.X, 0, dropdownButton.AbsolutePosition.Y + dropdownButton.AbsoluteSize.Y + 2)
+    optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    optionsFrame.BorderSizePixel = 0
+    optionsFrame.ZIndex = 1000
+    optionsFrame.ClipsDescendants = true
+    optionsFrame.Parent = game:GetService("CoreGui") -- <- IMPORTANT
 
-        local optionsCorner = Instance.new("UICorner")
-        optionsCorner.CornerRadius = UDim.new(0, 4)
-        optionsCorner.Parent = optionsFrame
+    local optionsCorner = Instance.new("UICorner")
+    optionsCorner.CornerRadius = UDim.new(0, 4)
+    optionsCorner.Parent = optionsFrame
 
-        local scrollingFrame = Instance.new("ScrollingFrame")
-        scrollingFrame.Size = UDim2.new(1, 0, 1, 0)
-        scrollingFrame.BackgroundTransparency = 1
-        scrollingFrame.BorderSizePixel = 0
-        scrollingFrame.ScrollBarThickness = 4
-        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 30)
-        scrollingFrame.Parent = optionsFrame
+    local scrollingFrame = Instance.new("ScrollingFrame")
+    scrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+    scrollingFrame.BackgroundTransparency = 1
+    scrollingFrame.BorderSizePixel = 0
+    scrollingFrame.ScrollBarThickness = 4
+    scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 30)
+    scrollingFrame.Parent = optionsFrame
 
-        local optionsLayout = Instance.new("UIListLayout")
-        optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        optionsLayout.Parent = scrollingFrame
+    local optionsLayout = Instance.new("UIListLayout")
+    optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    optionsLayout.Parent = scrollingFrame
 
-        for i, option in ipairs(optionsList) do
-            local optionButton = Instance.new("TextButton")
-            optionButton.Size = UDim2.new(1, 0, 0, 30)
-            optionButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-            optionButton.BorderSizePixel = 0
-            optionButton.Text = option
-            optionButton.TextColor3 = Color3.fromRGB(230, 230, 230)
-            optionButton.TextSize = 14
-            optionButton.Font = Enum.Font.Gotham
-            optionButton.AutoButtonColor = false
-            optionButton.LayoutOrder = i
-            optionButton.Parent = scrollingFrame
+    for i, option in ipairs(optionsList) do
+        local optionButton = Instance.new("TextButton")
+        optionButton.Size = UDim2.new(1, 0, 0, 30)
+        optionButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        optionButton.BorderSizePixel = 0
+        optionButton.Text = option
+        optionButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+        optionButton.TextSize = 14
+        optionButton.Font = Enum.Font.Gotham
+        optionButton.AutoButtonColor = false
+        optionButton.LayoutOrder = i
+        optionButton.Parent = scrollingFrame
 
-            -- Check if selected
-            local isSelected = false
-            if multipleOptions then
-                isSelected = table.find(currentValue, option) ~= nil
-            else
-                isSelected = currentValue == option
-            end
-
-            if isSelected then
-                optionButton.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
-            end
-
-            optionButton.MouseEnter:Connect(function()
-                if optionButton.BackgroundColor3 ~= Color3.fromRGB(60, 180, 60) then
-                    optionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-                end
-            end)
-
-            optionButton.MouseLeave:Connect(function()
-                local isSel = false
-                if multipleOptions then
-                    isSel = table.find(currentValue, option) ~= nil
-                else
-                    isSel = currentValue == option
-                end
-                optionButton.BackgroundColor3 = isSel and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
-            end)
-
-            optionButton.MouseButton1Click:Connect(function()
-                if multipleOptions then
-                    local idx = table.find(currentValue, option)
-                    if idx then
-                        table.remove(currentValue, idx)
-                    else
-                        table.insert(currentValue, option)
-                    end
-                    updateDisplay()
-
-                    -- Update button colors for multi-select
-                    for _, btn in ipairs(scrollingFrame:GetChildren()) do
-                        if btn:IsA("TextButton") then
-                            local isSel = table.find(currentValue, btn.Text) ~= nil
-                            btn.BackgroundColor3 = isSel and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
-                        end
-                    end
-                else
-                    currentValue = option
-                    updateDisplay()
-                    closeDropdown()
-                end
-            end)
+        local isSelected = multipleOptions and table.find(currentValue, option) or (currentValue == option)
+        if isSelected then
+            optionButton.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
         end
+
+        optionButton.MouseEnter:Connect(function()
+            if not isSelected then
+                optionButton.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+            end
+        end)
+
+        optionButton.MouseLeave:Connect(function()
+            local stillSelected = multipleOptions and table.find(currentValue, option) or (currentValue == option)
+            optionButton.BackgroundColor3 = stillSelected and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
+        end)
+
+        optionButton.MouseButton1Click:Connect(function()
+            if multipleOptions then
+                local idx = table.find(currentValue, option)
+                if idx then
+                    table.remove(currentValue, idx)
+                else
+                    table.insert(currentValue, option)
+                end
+                updateDisplay()
+                for _, btn in ipairs(scrollingFrame:GetChildren()) do
+                    if btn:IsA("TextButton") then
+                        local sel = table.find(currentValue, btn.Text)
+                        btn.BackgroundColor3 = sel and Color3.fromRGB(60, 180, 60) or Color3.fromRGB(45, 45, 45)
+                    end
+                end
+            else
+                currentValue = option
+                updateDisplay()
+                closeDropdown()
+            end
+        end)
     end
+end
 
     dropdownButton.MouseButton1Click:Connect(function()
         dropdownOpen = not dropdownOpen
