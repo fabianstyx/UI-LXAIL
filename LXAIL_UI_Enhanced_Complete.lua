@@ -2525,6 +2525,7 @@ function LXAIL:CreateWindow(options)
     section.Size = UDim2.new(0.95, 0, 0, 50)
     section.BorderSizePixel = 0
     section.LayoutOrder = #self.Components + 1
+    section.ClipsDescendants = false -- Allow dropdown to show outside bounds
     section.Parent = frame
 
     local sectionCorner = Instance.new("UICorner")
@@ -2600,18 +2601,16 @@ function LXAIL:CreateWindow(options)
     local function createOptionsFrame()
     if optionsFrame then optionsFrame:Destroy() end
 
-    task.wait() -- Wait to ensure AbsolutePosition is correct
-
-    -- Create dropdown container (on ScreenGui level for visibility)
+    -- Create dropdown container in the same parent as the section for proper visibility
     optionsFrame = Instance.new("Frame")
     optionsFrame.Name = "LXAILDropdownOptions"
-    optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, math.min(#optionsList * 30, 150))
-    optionsFrame.Position = UDim2.new(0, dropdownButton.AbsolutePosition.X, 0, dropdownButton.AbsolutePosition.Y + dropdownButton.AbsoluteSize.Y + 2)
+    optionsFrame.Size = UDim2.new(0, dropdownButton.Size.X.Offset, 0, math.min(#optionsList * 30, 150))
+    optionsFrame.Position = UDim2.new(0, dropdownButton.Position.X.Offset, 0, dropdownButton.Position.Y.Offset + 25 + 2)
     optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     optionsFrame.BorderSizePixel = 0
     optionsFrame.ZIndex = 1000
     optionsFrame.ClipsDescendants = true
-    optionsFrame.Parent = game:GetService("CoreGui") -- <- IMPORTANT
+    optionsFrame.Parent = section -- Parent to section instead of CoreGui
 
     local optionsCorner = Instance.new("UICorner")
     optionsCorner.CornerRadius = UDim.new(0, 4)
@@ -2691,6 +2690,25 @@ end
             closeDropdown()
         end
     end)
+    
+    -- Close dropdown when clicking outside
+    if UserInputService and UserInputService.InputBegan then
+        UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if dropdownOpen and optionsFrame then
+                    -- Check if click is outside the dropdown
+                    local mouse = UserInputService:GetMouseLocation()
+                    local framePos = optionsFrame.AbsolutePosition
+                    local frameSize = optionsFrame.AbsoluteSize
+                    
+                    if mouse.X < framePos.X or mouse.X > framePos.X + frameSize.X or 
+                       mouse.Y < framePos.Y or mouse.Y > framePos.Y + frameSize.Y then
+                        closeDropdown()
+                    end
+                end
+            end
+        end)
+    end
 
     -- Set initial flag value
     if flag then LXAIL.Flags[flag] = currentValue end
