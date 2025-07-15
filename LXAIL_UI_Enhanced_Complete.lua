@@ -66,146 +66,7 @@ local Library = {
     UIVisible = false;
 };
 
--- Create mobile-friendly toggle button
-local function CreateToggleButton()
-    local buttonSize = isMobile and UDim2.new(0, 60, 0, 60) or UDim2.new(0, 50, 0, 50);
-    local buttonPosition = isMobile and UDim2.new(0, 20, 0, 100) or UDim2.new(0, 20, 0, 80);
-    
-    local ToggleButton = Library:Create('TextButton', {
-        Name = 'LinoriaToggle';
-        Size = buttonSize;
-        Position = buttonPosition;
-        BackgroundColor3 = Library.AccentColor;
-        BorderSizePixel = 0;
-        Text = '';
-        ZIndex = 1000;
-        Active = true;
-        Parent = ToggleGui;
-    });
-
-    -- Add corner radius
-    Library:Create('UICorner', {
-        CornerRadius = UDim.new(0, isMobile and 30 or 25);
-        Parent = ToggleButton;
-    });
-
-    -- Add gradient
-    Library:Create('UIGradient', {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Library.AccentColor),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 65, 200))
-        });
-        Rotation = 45;
-        Parent = ToggleButton;
-    });
-
-    -- Add icon
-    local ButtonIcon = Library:Create('TextLabel', {
-        Size = UDim2.new(1, 0, 1, 0);
-        BackgroundTransparency = 1;
-        Text = '⚙️';
-        TextColor3 = Color3.fromRGB(255, 255, 255);
-        TextSize = isMobile and 24 or 20;
-        Font = Enum.Font.GothamBold;
-        TextXAlignment = Enum.TextXAlignment.Center;
-        TextYAlignment = Enum.TextYAlignment.Center;
-        ZIndex = 1001;
-        Parent = ToggleButton;
-    });
-
-    -- Add shadow effect
-    local Shadow = Library:Create('Frame', {
-        Name = 'Shadow';
-        Size = UDim2.new(1, 4, 1, 4);
-        Position = UDim2.new(0, -2, 0, 2);
-        BackgroundColor3 = Color3.new(0, 0, 0);
-        BackgroundTransparency = 0.7;
-        BorderSizePixel = 0;
-        ZIndex = 999;
-        Parent = ToggleButton;
-    });
-
-    Library:Create('UICorner', {
-        CornerRadius = UDim.new(0, isMobile and 30 or 25);
-        Parent = Shadow;
-    });
-
-    -- Dragging functionality
-    local dragging = false;
-    local dragStart = nil;
-    local startPos = nil;
-    local dragThreshold = 5;
-    local hasDragged = false;
-
-    ToggleButton.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true;
-            hasDragged = false;
-            dragStart = input.Position;
-            startPos = ToggleButton.Position;
-        end
-    end);
-
-    InputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart;
-            
-            if math.abs(delta.X) > dragThreshold or math.abs(delta.Y) > dragThreshold then
-                hasDragged = true;
-                ToggleButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y);
-            end
-        end
-    end);
-
-    InputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if dragging and not hasDragged then
-                -- This was a tap/click, toggle the UI
-                Library:ToggleUI();
-            end
-            dragging = false;
-        end
-    end);
-
-    -- Hover effects for desktop
-    if not isMobile then
-        ToggleButton.MouseEnter:Connect(function()
-            TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                Size = UDim2.new(0, 55, 0, 55);
-            }):Play();
-        end);
-
-        ToggleButton.MouseLeave:Connect(function()
-            TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                Size = UDim2.new(0, 50, 0, 50);
-            }):Play();
-        end);
-    end
-
-    -- Touch feedback for mobile
-    if isMobile then
-        ToggleButton.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch then
-                TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-                    Size = UDim2.new(0, 55, 0, 55);
-                }):Play();
-            end
-        end);
-
-        ToggleButton.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch then
-                TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-                    Size = UDim2.new(0, 60, 0, 60);
-                }):Play();
-            end
-        end);
-    end
-
-    return ToggleButton;
-end
-
--- Create the toggle button
-local ToggleButton = CreateToggleButton();
+-- We'll create the toggle button after all Library methods are defined
 
 -- UI Toggle Function
 function Library:ToggleUI()
@@ -3923,6 +3784,147 @@ end;
 
 Players.PlayerAdded:Connect(OnPlayerChange);
 Players.PlayerRemoving:Connect(OnPlayerChange);
+
+-- Create mobile-friendly toggle button
+local function CreateToggleButton()
+    local buttonSize = isMobile and UDim2.new(0, 60, 0, 60) or UDim2.new(0, 50, 0, 50);
+    local buttonPosition = isMobile and UDim2.new(0, 20, 0, 100) or UDim2.new(0, 20, 0, 80);
+    
+    local ToggleButton = Library:Create('TextButton', {
+        Name = 'LinoriaToggle';
+        Size = buttonSize;
+        Position = buttonPosition;
+        BackgroundColor3 = Library.AccentColor;
+        BorderSizePixel = 0;
+        Text = '';
+        ZIndex = 1000;
+        Active = true;
+        Parent = ToggleGui;
+    });
+
+    -- Add corner radius
+    Library:Create('UICorner', {
+        CornerRadius = UDim.new(0, isMobile and 30 or 25);
+        Parent = ToggleButton;
+    });
+
+    -- Add gradient
+    Library:Create('UIGradient', {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Library.AccentColor),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 65, 200))
+        });
+        Rotation = 45;
+        Parent = ToggleButton;
+    });
+
+    -- Add icon
+    local ButtonIcon = Library:Create('TextLabel', {
+        Size = UDim2.new(1, 0, 1, 0);
+        BackgroundTransparency = 1;
+        Text = '⚙️';
+        TextColor3 = Color3.fromRGB(255, 255, 255);
+        TextSize = isMobile and 24 or 20;
+        Font = Enum.Font.GothamBold;
+        TextXAlignment = Enum.TextXAlignment.Center;
+        TextYAlignment = Enum.TextYAlignment.Center;
+        ZIndex = 1001;
+        Parent = ToggleButton;
+    });
+
+    -- Add shadow effect
+    local Shadow = Library:Create('Frame', {
+        Name = 'Shadow';
+        Size = UDim2.new(1, 4, 1, 4);
+        Position = UDim2.new(0, -2, 0, 2);
+        BackgroundColor3 = Color3.new(0, 0, 0);
+        BackgroundTransparency = 0.7;
+        BorderSizePixel = 0;
+        ZIndex = 999;
+        Parent = ToggleButton;
+    });
+
+    Library:Create('UICorner', {
+        CornerRadius = UDim.new(0, isMobile and 30 or 25);
+        Parent = Shadow;
+    });
+
+    -- Dragging functionality
+    local dragging = false;
+    local dragStart = nil;
+    local startPos = nil;
+    local dragThreshold = 5;
+    local hasDragged = false;
+
+    ToggleButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true;
+            hasDragged = false;
+            dragStart = input.Position;
+            startPos = ToggleButton.Position;
+        end
+    end);
+
+    InputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart;
+            
+            if math.abs(delta.X) > dragThreshold or math.abs(delta.Y) > dragThreshold then
+                hasDragged = true;
+                ToggleButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y);
+            end
+        end
+    end);
+
+    InputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if dragging and not hasDragged then
+                -- This was a tap/click, toggle the UI
+                Library:ToggleUI();
+            end
+            dragging = false;
+        end
+    end);
+
+    -- Hover effects for desktop
+    if not isMobile then
+        ToggleButton.MouseEnter:Connect(function()
+            TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                Size = UDim2.new(0, 55, 0, 55);
+            }):Play();
+        end);
+
+        ToggleButton.MouseLeave:Connect(function()
+            TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                Size = UDim2.new(0, 50, 0, 50);
+            }):Play();
+        end);
+    end
+
+    -- Touch feedback for mobile
+    if isMobile then
+        ToggleButton.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    Size = UDim2.new(0, 55, 0, 55);
+                }):Play();
+            end
+        end);
+
+        ToggleButton.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                TweenService:Create(ToggleButton, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    Size = UDim2.new(0, 60, 0, 60);
+                }):Play();
+            end
+        end);
+    end
+
+    return ToggleButton;
+end
+
+-- Create the toggle button after all Library methods are defined
+local ToggleButton = CreateToggleButton();
 
 getgenv().Library = Library
 return Library
