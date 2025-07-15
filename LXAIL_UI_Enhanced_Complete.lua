@@ -2624,12 +2624,27 @@ function LXAIL:CreateWindow(options)
     optionsFrame.Name = "LXAILDropdownOptions"
     optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, totalHeight)
     
-    -- Position relative to the dropdown button within the same parent
-    optionsFrame.Position = UDim2.new(0, dropdownButton.Position.X.Offset, 0, dropdownButton.Position.Y.Offset + dropdownButton.Size.Y.Offset + 2)
+    -- Smart positioning to ensure dropdown is always visible
+    local yPos = dropdownButton.Position.Y.Offset + dropdownButton.Size.Y.Offset + 2
+    local availableSpace = section.AbsoluteSize.Y - yPos
+    
+    -- If dropdown would go outside bounds, position it above the button
+    if totalHeight > availableSpace then
+        yPos = dropdownButton.Position.Y.Offset - totalHeight - 2
+        -- Ensure it doesn't go above the section
+        if yPos < 0 then
+            yPos = 5
+            -- Adjust height to fit
+            totalHeight = math.min(totalHeight, dropdownButton.Position.Y.Offset - 10)
+            optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, totalHeight)
+        end
+    end
+    
+    optionsFrame.Position = UDim2.new(0, dropdownButton.Position.X.Offset, 0, yPos)
     optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     optionsFrame.BorderSizePixel = 1
     optionsFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
-    optionsFrame.ZIndex = 10000
+    optionsFrame.ZIndex = 100
     optionsFrame.ClipsDescendants = false
     optionsFrame.Parent = section
 
@@ -2646,16 +2661,22 @@ function LXAIL:CreateWindow(options)
     scrollingFrame.ScrollBarThickness = (#optionsList > maxVisibleOptions) and 6 or 0
     scrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
     scrollingFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-    scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * optionHeight)
+    scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * optionHeight + 5)
     scrollingFrame.TopImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
     scrollingFrame.BottomImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
     scrollingFrame.MidImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
+    scrollingFrame.ZIndex = 101
     scrollingFrame.Parent = optionsFrame
 
     local scrollLayout = Instance.new("UIListLayout")
     scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
     scrollLayout.Padding = UDim.new(0, 1)
     scrollLayout.Parent = scrollingFrame
+    
+    -- Update canvas size when layout changes
+    scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 5)
+    end)
 
     for i, option in ipairs(optionsList) do
         local optionButton = Instance.new("TextButton")
@@ -2671,7 +2692,7 @@ function LXAIL:CreateWindow(options)
         optionButton.TextXAlignment = Enum.TextXAlignment.Left
         optionButton.AutoButtonColor = false
         optionButton.LayoutOrder = i
-        optionButton.ZIndex = 1001
+        optionButton.ZIndex = 102
         optionButton.Parent = scrollingFrame
 
         -- Add padding for text
@@ -2735,9 +2756,11 @@ end
     
     -- Close dropdown when clicking outside
     if UserInputService and UserInputService.InputBegan then
-        UserInputService.InputBegan:Connect(function(input)
+        UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                if dropdownOpen and optionsFrame then
+                if dropdownOpen and optionsFrame and optionsFrame.Parent then
                     -- Check if click is outside the dropdown and dropdown button
                     local mouse = UserInputService:GetMouseLocation()
                     local framePos = optionsFrame.AbsolutePosition
@@ -2751,6 +2774,7 @@ end
                                          mouse.Y < buttonPos.Y or mouse.Y > buttonPos.Y + buttonSize.Y
                     
                     if outsideDropdown and outsideButton then
+                        wait(0.1) -- Small delay to prevent immediate closing
                         closeDropdown()
                     end
                 end
