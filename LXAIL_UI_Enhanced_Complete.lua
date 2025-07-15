@@ -3060,9 +3060,16 @@ local globalToggleConnection = RegisterConnection(UserInputService.InputBegan:Co
 end), "GlobalToggleConnection")
 
 -- === AUTO-CLEANUP ON GAME CLOSE ===
-game:BindToClose(function()
-    LXAIL:Unload()
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+player.AncestryChanged:Connect(function(_, parent)
+    if not parent then
+        -- jugador salió, aquí limpia tu UI o desconecta eventos
+        LXAIL:Unload()
+    end
 end)
+
 
 -- === INITIALIZATION ===
 print("[LXAIL Enhanced] UI Library v" .. LXAIL.Version .. " loaded successfully")
