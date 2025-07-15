@@ -2527,6 +2527,19 @@ function LXAIL:CreateWindow(options)
     section.LayoutOrder = #self.Components + 1
     section.ClipsDescendants = false -- Allow dropdown to show outside bounds
     section.Parent = frame
+    
+    -- Expand section size when dropdown is open
+    local originalSize = section.Size
+    local function expandSection()
+        local maxVisibleOptions = 6
+        local optionHeight = 34
+        local totalHeight = math.min(#optionsList * optionHeight, maxVisibleOptions * optionHeight)
+        section.Size = UDim2.new(0.95, 0, 0, 50 + totalHeight + 5)
+    end
+    
+    local function collapseSection()
+        section.Size = originalSize
+    end
 
     local sectionCorner = Instance.new("UICorner")
     sectionCorner.CornerRadius = UDim.new(0, 8)
@@ -2596,17 +2609,11 @@ function LXAIL:CreateWindow(options)
         end
         dropdownOpen = false
         tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 0})
+        collapseSection()
     end
 
     local function createOptionsFrame()
     if optionsFrame then optionsFrame:Destroy() end
-
-    -- Create dropdown container in a ScreenGui for proper layering
-    local optionsGui = Instance.new("ScreenGui")
-    optionsGui.Name = "LXAILDropdownOptionsGui"
-    optionsGui.ResetOnSpawn = false
-    optionsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    optionsGui.Parent = playerGui or CoreGui
 
     -- Calculate dynamic height based on number of options
     local maxVisibleOptions = 6
@@ -2617,15 +2624,14 @@ function LXAIL:CreateWindow(options)
     optionsFrame.Name = "LXAILDropdownOptions"
     optionsFrame.Size = UDim2.new(0, dropdownButton.AbsoluteSize.X, 0, totalHeight)
     
-    -- Use absolute positioning from the button
-    local buttonAbsPos = dropdownButton.AbsolutePosition
-    optionsFrame.Position = UDim2.new(0, buttonAbsPos.X, 0, buttonAbsPos.Y + dropdownButton.AbsoluteSize.Y + 2)
+    -- Position relative to the dropdown button within the same parent
+    optionsFrame.Position = UDim2.new(0, dropdownButton.Position.X.Offset, 0, dropdownButton.Position.Y.Offset + dropdownButton.Size.Y.Offset + 2)
     optionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     optionsFrame.BorderSizePixel = 1
     optionsFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
     optionsFrame.ZIndex = 10000
-    optionsFrame.ClipsDescendants = true
-    optionsFrame.Parent = optionsGui
+    optionsFrame.ClipsDescendants = false
+    optionsFrame.Parent = section
 
     local optionsCorner = Instance.new("UICorner")
     optionsCorner.CornerRadius = UDim.new(0, 4)
@@ -2719,6 +2725,7 @@ end
     dropdownButton.MouseButton1Click:Connect(function()
         dropdownOpen = not dropdownOpen
         if dropdownOpen then
+            expandSection()
             createOptionsFrame()
             tween(dropdownArrow, TweenInfo.new(0.2), {Rotation = 180})
         else
@@ -2731,13 +2738,19 @@ end
         UserInputService.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 if dropdownOpen and optionsFrame then
-                    -- Check if click is outside the dropdown
+                    -- Check if click is outside the dropdown and dropdown button
                     local mouse = UserInputService:GetMouseLocation()
                     local framePos = optionsFrame.AbsolutePosition
                     local frameSize = optionsFrame.AbsoluteSize
+                    local buttonPos = dropdownButton.AbsolutePosition
+                    local buttonSize = dropdownButton.AbsoluteSize
                     
-                    if mouse.X < framePos.X or mouse.X > framePos.X + frameSize.X or 
-                       mouse.Y < framePos.Y or mouse.Y > framePos.Y + frameSize.Y then
+                    local outsideDropdown = mouse.X < framePos.X or mouse.X > framePos.X + frameSize.X or 
+                                           mouse.Y < framePos.Y or mouse.Y > framePos.Y + frameSize.Y
+                    local outsideButton = mouse.X < buttonPos.X or mouse.X > buttonPos.X + buttonSize.X or 
+                                         mouse.Y < buttonPos.Y or mouse.Y > buttonPos.Y + buttonSize.Y
+                    
+                    if outsideDropdown and outsideButton then
                         closeDropdown()
                     end
                 end
